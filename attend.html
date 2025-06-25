@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shivmudra QR Attendance with Gmail Only</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    button[disabled] { opacity: .5; }
+  </style>
+</head>
+<body>
+  <h2>Mark Attendance</h2>
+  <form id="rollForm">
+    <label for="roll">Roll No:</label>
+    <select id="roll" required>
+      <option value="">--Select Roll No--</option>
+    </select><br><br>
+    <button type="submit">Mark Present</button>
+  </form>
+
+<script>
+(function () {
+  // Populate Roll No dropdown J1–J500
+  const dropdown = document.getElementById("roll");
+  for (let i = 1; i <= 500; i++) {
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = `J${i}`;
+    dropdown.appendChild(opt);
+  }
+
+  // Google Form entry field IDs
+  const entryRoll = "entry.2042981372";      // Roll No
+  const entryLocation = "entry.1199633071";  // Lat,Lng
+  const entryAddress = "entry.1494342587";   // Address
+
+  const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfCLgk0oPah7li3knwQkh9RNBn35WfOhyP5EghPvUnUxiO3Ag/formResponse";
+
+  document.getElementById("rollForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const roll = dropdown.value;
+    if (!roll) return alert("Please select your roll number.");
+
+    if (!navigator.geolocation) {
+      alert("Geolocation not supported.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      const location = `${lat},${lng}`;
+
+      let address = "Unknown";
+      try {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+          { headers: { "User-Agent": "qr-attendance/1.0" } }
+        );
+        const data = await resp.json();
+        address = data.display_name || "Unknown";
+      } catch (err) {
+        console.warn("Geocoding failed:", err);
+      }
+
+      const formData = new FormData();
+      formData.append(entryRoll, roll);
+      formData.append(entryLocation, location);
+      formData.append(entryAddress, address);
+
+      fetch(formUrl, {
+        method: "POST",
+        mode: "no-cors",
+        body: formData
+      })
+      .then(() => {
+        alert("✅ Attendance marked successfully.");
+      })
+      .catch((err) => {
+        alert("❌ Submission failed: " + err.message);
+      });
+    },
+    err => alert("Location error: " + err.message),
+    { enableHighAccuracy: true, timeout: 10000 });
+  });
+})();
+</script>
+</body>
+</html>
